@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg fill="none" height="24" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
+<rect fill="#FFFFFF" height="16" stroke-linejoin="round" width="16" x="4" y="4"/>
+<path d="M8 4v16" stroke-linejoin="round"/>
+<path d="M16 4v16" stroke-linejoin="round"/>
+</svg>
