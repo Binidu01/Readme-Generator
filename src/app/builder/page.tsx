@@ -37,6 +37,7 @@ export default function ProfessionalReadmeGenerator() {
   const [showPreview, setShowPreview] = useState(true);
   const [activeTab, setActiveTab] = useState<'markdown' | 'preview'>('preview');
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [markdownText, setMarkdownText] = useState<string>("");
 
   // Animation for stats counters
   const [animatedStats, setAnimatedStats] = useState({
@@ -343,67 +344,72 @@ cd ${repoData?.name}
 \`\`\``;
   }
 
-  async function handleGenerate() {
-    setError("");
-    setRepoData(null);
-    setLanguages({});
-    const parsed = parseGithubUrl(repoUrl);
-    if (!parsed) {
-      setError("Please enter a valid GitHub repository URL.");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const [repoRes, langsRes, readmeRes, commitsRes] = await Promise.all([
-        fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}`),
-        fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}/languages`),
-        fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}/readme`, {
-          headers: { Accept: "application/vnd.github.v3.raw" },
-        }),
-        fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}/commits?per_page=1`),
-      ]);
-
-      if (!repoRes.ok) {
-        if (repoRes.status === 404) {
-          throw new Error("Repository not found. Please check the URL and try again.");
-        }
-        throw new Error("Failed to fetch repository data.");
-      }
-
-      const repoJson = await repoRes.json();
-      const langsJson = langsRes.ok ? await langsRes.json() : {};
-      setLanguages(langsJson);
-
-      const readmeContent = readmeRes.ok ? await readmeRes.text() : "";
-      const commitsJson = commitsRes.ok ? await commitsRes.json() : [];
-
-      setRepoData({
-        name: repoJson.name,
-        description: repoJson.description,
-        licenseName: repoJson.license?.spdx_id || repoJson.license?.name || "MIT",
-        readmeContent,
-        topics: repoJson.topics || [],
-        stars: repoJson.stargazers_count,
-        forks: repoJson.forks_count,
-        lastCommitDate: commitsJson[0]?.commit?.author?.date || "",
-        htmlUrl: repoJson.html_url,
-        homepage: repoJson.homepage,
-        ownerLogin: repoJson.owner.login,
-        ownerUrl: repoJson.owner.html_url,
-        language: repoJson.language,
-        size: repoJson.size,
-        openIssues: repoJson.open_issues_count,
-        watchers: repoJson.watchers_count,
-        createdAt: repoJson.created_at,
-        updatedAt: repoJson.updated_at,
-      });
-    } catch (e: any) {
-      setError(e.message || "An unexpected error occurred. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+async function handleGenerate() {
+  setError("");
+  setRepoData(null);
+  setLanguages({});
+  const parsed = parseGithubUrl(repoUrl);
+  if (!parsed) {
+    setError("Please enter a valid GitHub repository URL.");
+    return;
   }
+
+  setLoading(true);
+  try {
+    const [repoRes, langsRes, readmeRes, commitsRes] = await Promise.all([
+      fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}`),
+      fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}/languages`),
+      fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}/readme`, {
+        headers: { Accept: "application/vnd.github.v3.raw" },
+      }),
+      fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}/commits?per_page=1`),
+    ]);
+
+    if (!repoRes.ok) {
+      if (repoRes.status === 404) {
+        throw new Error("Repository not found. Please check the URL and try again.");
+      }
+      throw new Error("Failed to fetch repository data.");
+    }
+
+    const repoJson = await repoRes.json();
+    const langsJson = langsRes.ok ? await langsRes.json() : {};
+    setLanguages(langsJson);
+
+    const readmeContent = readmeRes.ok ? await readmeRes.text() : "";
+    const commitsJson = commitsRes.ok ? await commitsRes.json() : [];
+
+    const repoObj = {
+      name: repoJson.name,
+      description: repoJson.description,
+      licenseName: repoJson.license?.spdx_id || repoJson.license?.name || "MIT",
+      readmeContent,
+      topics: repoJson.topics || [],
+      stars: repoJson.stargazers_count,
+      forks: repoJson.forks_count,
+      lastCommitDate: commitsJson[0]?.commit?.author?.date || "",
+      htmlUrl: repoJson.html_url,
+      homepage: repoJson.homepage,
+      ownerLogin: repoJson.owner.login,
+      ownerUrl: repoJson.owner.html_url,
+      language: repoJson.language,
+      size: repoJson.size,
+      openIssues: repoJson.open_issues_count,
+      watchers: repoJson.watchers_count,
+      createdAt: repoJson.created_at,
+      updatedAt: repoJson.updated_at,
+    };
+
+    setRepoData(repoObj);
+    setMarkdownText(generateReadme(repoObj, langsJson));
+
+  } catch (e: any) {
+    setError(e.message || "An unexpected error occurred. Please try again.");
+  } finally {
+    setLoading(false);
+  }
+}
+
 
 const copyCodeToClipboard = async (code: string) => {
   try {
@@ -429,43 +435,25 @@ const copyCodeToClipboard = async (code: string) => {
 };
 
 const copyToClipboard = async () => {
-  if (!repoData) return;
-  try {
-    const text = generateReadme(repoData, languages);
-    if (navigator.clipboard) {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } else {
-      // Fallback for browsers without Clipboard API
-      const textArea = document.createElement('textarea');
-      textArea.value = text;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textArea);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  } catch (err) {
-    console.error('Failed to copy text: ', err);
-    alert('Failed to copy README. Please copy manually.');
-  }
+  if (!markdownText) return;
+  await navigator.clipboard.writeText(markdownText);
+  setCopied(true);
+  setTimeout(() => setCopied(false), 2000);
 };
 
-  const downloadReadme = () => {
-    if (!repoData) return;
-    const content = generateReadme(repoData, languages);
-    const blob = new Blob([content], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'README.md';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
+const downloadReadme = () => {
+  if (!markdownText) return;               // ← use markdownText
+  const blob = new Blob([markdownText], { type: 'text/markdown' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'README.md';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
 
   const backgroundPattern = {
     backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
@@ -648,134 +636,105 @@ const copyToClipboard = async () => {
                 </div>
 
                 {/* Content */}
-                <div className="p-6">
-                  {activeTab === 'markdown' ? (
-                    <textarea
-                      readOnly
-                      className="w-full h-96 p-4 bg-gray-900 text-gray-100 font-mono text-sm rounded-xl border border-gray-600 resize-none focus:outline-none"
-                      value={generateReadme(repoData, languages)}
-                    />
-                  ) : (
-                    <div className="bg-gray-900 rounded-lg p-6 border border-gray-700">
-                      <div className="prose prose-invert max-w-none prose-headings:text-white prose-p:text-gray-300 prose-strong:text-white prose-a:text-blue-400 prose-a:no-underline hover:prose-a:underline prose-code:text-purple-300 prose-code:bg-gray-800 prose-pre:bg-gray-800 prose-pre:border prose-pre:border-gray-700">
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm]}
-                          rehypePlugins={[rehypeRaw]}
-                          components={{
-                            img: ({ node, ...props }) => (
-                              <img
-                                {...props}
-                                className="inline-block max-w-full h-auto rounded border border-gray-700"
-                                style={{ filter: "brightness(1.1)" }}
-                              />
-                            ),
-                            code: ({ node, inline, className, children, ...props }) => {
-                              if (inline) {
-                                return (
-                                  <code className="bg-gray-800 text-purple-300 px-2 py-1 rounded text-sm border border-gray-700" {...props}>
-                                    {children}
-                                  </code>
-                                );
-                              }
-                              const codeContent = String(children).replace(/\n$/, '');
-                              return (
-                                <div className="relative group">
-                                  <button
-                                    onClick={() => copyCodeToClipboard(codeContent)}
-                                    className="absolute top-2 right-2 p-2 bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white rounded transition-all duration-200 opacity-0 group-hover:opacity-100 z-10"
-                                    title="Copy code"
-                                  >
-                                    {copiedCode === codeContent ? (
-                                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                      </svg>
-                                    ) : (
-                                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                        <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
-                                        <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
-                                      </svg>
-                                    )}
-                                  </button>
-                                  <code className={`${className} block bg-gray-800 text-gray-300 p-4 rounded-lg border border-gray-700 overflow-x-auto pr-12`} {...props}>
-                                    {children}
-                                  </code>
-                                </div>
-                              );
-                            },
-                            pre: ({ node, children, ...props }) => (
-                              <div className="relative group">
-                                <pre className="bg-gray-800 text-gray-300 p-4 rounded-lg border border-gray-700 overflow-x-auto" {...props}>
-                                  {children}
-                                </pre>
-                              </div>
-                            ),
-                            h1: ({ node, ...props }) => (
-                              <h1 className="text-3xl font-bold text-white mb-4 pb-2 border-b border-gray-700" {...props} />
-                            ),
-                            h2: ({ node, ...props }) => (
-                              <h2 className="text-2xl font-bold text-white mb-3 mt-8 pb-2 border-b border-gray-700" {...props} />
-                            ),
-                            h3: ({ node, ...props }) => (
-                              <h3 className="text-xl font-bold text-white mb-2 mt-6" {...props} />
-                            ),
-                            h4: ({ node, ...props }) => (
-                              <h4 className="text-lg font-bold text-white mb-2 mt-4" {...props} />
-                            ),
-                            h5: ({ node, ...props }) => (
-                              <h5 className="text-base font-bold text-white mb-2 mt-4" {...props} />
-                            ),
-                            h6: ({ node, ...props }) => (
-                              <h6 className="text-sm font-bold text-white mb-2 mt-4" {...props} />
-                            ),
-                            p: ({ node, ...props }) => (
-                              <p className="text-gray-300 mb-4 leading-relaxed" {...props} />
-                            ),
-                            a: ({ node, ...props }) => (
-                              <a className="text-blue-400 hover:text-blue-300 hover:underline transition-colors" {...props} />
-                            ),
-                            ul: ({ node, ...props }) => (
-                              <ul className="text-gray-300 mb-4 pl-6 space-y-2" {...props} />
-                            ),
-                            ol: ({ node, ...props }) => (
-                              <ol className="text-gray-300 mb-4 pl-6 space-y-2" {...props} />
-                            ),
-                            li: ({ node, ...props }) => (
-                              <li className="text-gray-300" {...props} />
-                            ),
-                            blockquote: ({ node, ...props }) => (
-                              <blockquote className="border-l-4 border-blue-500 pl-4 italic text-gray-400 bg-gray-800 p-4 rounded-r-lg" {...props} />
-                            ),
-                            table: ({ node, ...props }) => (
-                              <div className="overflow-x-auto mb-4">
-                                <table className="min-w-full border border-gray-700 rounded-lg" {...props} />
-                              </div>
-                            ),
-                            thead: ({ node, ...props }) => (
-                              <thead className="bg-gray-800" {...props} />
-                            ),
-                            tbody: ({ node, ...props }) => (
-                              <tbody className="bg-gray-850" {...props} />
-                            ),
-                            tr: ({ node, ...props }) => (
-                              <tr className="border-b border-gray-700" {...props} />
-                            ),
-                            th: ({ node, ...props }) => (
-                              <th className="px-4 py-2 text-left text-white font-semibold border-r border-gray-700" {...props} />
-                            ),
-                            td: ({ node, ...props }) => (
-                              <td className="px-4 py-2 text-gray-300 border-r border-gray-700" {...props} />
-                            ),
-                            hr: ({ node, ...props }) => (
-                              <hr className="border-gray-700 my-8" {...props} />
-                            )
-                          }}
-                        >
-                          {generateReadme(repoData, languages)}
-                        </ReactMarkdown>
-                      </div>
-                    </div>
-                  )}
+<div className="p-6">
+  {activeTab === 'markdown' ? (
+    <textarea
+      value={markdownText}                           // ← use markdownText
+      onChange={e => setMarkdownText(e.target.value)}// ← make it editable
+      className="w-full h-96 p-4 bg-gray-900 text-gray-100 font-mono text-sm rounded-xl border border-gray-600 resize-none focus:outline-none"
+    />
+  ) : (
+    <div className="bg-gray-900 rounded-lg p-6 border border-gray-700">
+      <div className="prose prose-invert max-w-none prose-headings:text-white prose-p:text-gray-300 prose-strong:text-white prose-a:text-blue-400 prose-a:no-underline hover:prose-a:underline prose-code:text-purple-300 prose-code:bg-gray-800 prose-pre:bg-gray-800 prose-pre:border prose-pre:border-gray-700">
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          rehypePlugins={[rehypeRaw]}
+          components={{
+            img: ({ node, ...props }) => (
+              <img
+                {...props}
+                className="inline-block max-w-full h-auto rounded border border-gray-700"
+                style={{ filter: "brightness(1.1)" }}
+              />
+            ),
+            code: ({ inline, className, children, ...props }) => {
+              if (inline) {
+                return (
+                  <code
+                    className="bg-gray-800 text-purple-300 px-2 py-1 rounded text-sm border border-gray-700"
+                    {...props}
+                  >
+                    {children}
+                  </code>
+                );
+              }
+              const codeContent = String(children).replace(/\n$/, '');
+              return (
+                <div className="relative group">
+                  <button
+                    onClick={() => copyCodeToClipboard(codeContent)}
+                    className="absolute top-2 right-2 p-2 bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white rounded transition-all duration-200 opacity-0 group-hover:opacity-100 z-10"
+                    title="Copy code"
+                  >
+                    {copiedCode === codeContent ? (
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+                        <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
+                      </svg>
+                    )}
+                  </button>
+                  <code
+                    className={`${className} block bg-gray-800 text-gray-300 p-4 rounded-lg border border-gray-700 overflow-x-auto pr-12`}
+                    {...props}
+                  >
+                    {children}
+                  </code>
                 </div>
+              );
+            },
+            pre: ({ children, ...props }) => (
+              <div className="relative group">
+                <pre className="bg-gray-800 text-gray-300 p-4 rounded-lg border border-gray-700 overflow-x-auto" {...props}>
+                  {children}
+                </pre>
+              </div>
+            ),
+            h1: ({ ...props }) => <h1 className="text-3xl font-bold text-white mb-4 pb-2 border-b border-gray-700" {...props} />,
+            h2: ({ ...props }) => <h2 className="text-2xl font-bold text-white mb-3 mt-8 pb-2 border-b border-gray-700" {...props} />,
+            h3: ({ ...props }) => <h3 className="text-xl font-bold text-white mb-2 mt-6" {...props} />,
+            h4: ({ ...props }) => <h4 className="text-lg font-bold text-white mb-2 mt-4" {...props} />,
+            h5: ({ ...props }) => <h5 className="text-base font-bold text-white mb-2 mt-4" {...props} />,
+            h6: ({ ...props }) => <h6 className="text-sm font-bold text-white mb-2 mt-4" {...props} />,
+            p: ({ ...props }) => <p className="text-gray-300 mb-4 leading-relaxed" {...props} />,
+            a: ({ ...props }) => <a className="text-blue-400 hover:text-blue-300 hover:underline transition-colors" {...props} />,
+            ul: ({ ...props }) => <ul className="text-gray-300 mb-4 pl-6 space-y-2" {...props} />,
+            ol: ({ ...props }) => <ol className="text-gray-300 mb-4 pl-6 space-y-2" {...props} />,
+            li: ({ ...props }) => <li className="text-gray-300" {...props} />,
+            blockquote: ({ ...props }) => <blockquote className="border-l-4 border-blue-500 pl-4 italic text-gray-400 bg-gray-800 p-4 rounded-r-lg" {...props} />,
+            table: ({ ...props }) => (
+              <div className="overflow-x-auto mb-4">
+                <table className="min-w-full border border-gray-700 rounded-lg" {...props} />
+              </div>
+            ),
+            thead: ({ ...props }) => <thead className="bg-gray-800" {...props} />,
+            tbody: ({ ...props }) => <tbody className="bg-gray-850" {...props} />,
+            tr: ({ ...props }) => <tr className="border-b border-gray-700" {...props} />,
+            th: ({ ...props }) => <th className="px-4 py-2 text-left text-white font-semibold border-r border-gray-700" {...props} />,
+            td: ({ ...props }) => <td className="px-4 py-2 text-gray-300 border-r border-gray-700" {...props} />,
+            hr: ({ ...props }) => <hr className="border-gray-700 my-8" {...props} />
+          }}
+        >
+          {markdownText}
+        </ReactMarkdown>
+      </div>
+    </div>
+  )}
+</div>
+
               </div>
             </div>
           )}
