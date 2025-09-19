@@ -30,11 +30,10 @@ interface RepoData {
 export default function ProfessionalReadmeGenerator() {
   const [repoUrl, setRepoUrl] = useState("");
   const [repoData, setRepoData] = useState<RepoData | null>(null);
-  const [languages, setLanguages] = useState<Record<string, number>>({});
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
-  const [showPreview, setShowPreview] = useState(true);
   const [activeTab, setActiveTab] = useState<'markdown' | 'preview'>('preview');
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [markdownText, setMarkdownText] = useState<string>("");
@@ -51,23 +50,23 @@ export default function ProfessionalReadmeGenerator() {
       const duration = 1000;
       const steps = 50;
       const interval = duration / steps;
-      
+
       let step = 0;
       const timer = setInterval(() => {
         step++;
         const progress = step / steps;
-        
+
         setAnimatedStats({
           stars: Math.floor((repoData.stars || 0) * progress),
           forks: Math.floor((repoData.forks || 0) * progress),
           watchers: Math.floor((repoData.watchers || 0) * progress)
         });
-        
+
         if (step >= steps) {
           clearInterval(timer);
         }
       }, interval);
-      
+
       return () => clearInterval(timer);
     }
   }, [repoData]);
@@ -88,24 +87,6 @@ export default function ProfessionalReadmeGenerator() {
     const regex = new RegExp(`##+\\s*${section}[\\s\\S]*?(?=\\n##+\\s|$)`, "i");
     const match = markdown.match(regex);
     return match ? match[0].trim() : "";
-  }
-
-  function timeSince(dateString: string) {
-    if (!dateString) return "N/A";
-    const date = new Date(dateString);
-    const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
-
-    let interval = Math.floor(seconds / 31536000);
-    if (interval >= 1) return interval + " year" + (interval > 1 ? "s" : "") + " ago";
-    interval = Math.floor(seconds / 2592000);
-    if (interval >= 1) return interval + " month" + (interval > 1 ? "s" : "") + " ago";
-    interval = Math.floor(seconds / 86400);
-    if (interval >= 1) return interval + " day" + (interval > 1 ? "s" : "") + " ago";
-    interval = Math.floor(seconds / 3600);
-    if (interval >= 1) return interval + " hour" + (interval > 1 ? "s" : "") + " ago";
-    interval = Math.floor(seconds / 60);
-    if (interval >= 1) return interval + " minute" + (interval > 1 ? "s" : "") + " ago";
-    return "just now";
   }
 
   function formatFileSize(bytes: number) {
@@ -145,18 +126,18 @@ export default function ProfessionalReadmeGenerator() {
     if (!data) return "";
 
     const topLanguages = Object.entries(langs)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5);
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5);
 
     const installation = extractSection(data.readmeContent || "", "Installation");
     const usage = extractSection(data.readmeContent || "", "Usage");
     const contributing = extractSection(data.readmeContent || "", "Contributing");
 
     const languageBadges = topLanguages
-      .map(([lang]) => 
-        `![${lang}](https://img.shields.io/badge/${encodeURIComponent(lang)}-${getLanguageColor(lang).slice(1)}?style=for-the-badge&logo=${lang.toLowerCase()}&logoColor=white)`
-      )
-      .join(' ');
+        .map(([lang]) =>
+            `![${lang}](https://img.shields.io/badge/${encodeURIComponent(lang)}-${getLanguageColor(lang).slice(1)}?style=for-the-badge&logo=${lang.toLowerCase()}&logoColor=white)`
+        )
+        .join(' ');
 
     const gettingStarted = getGettingStartedSection(topLanguages.map(([lang]) => lang));
 
@@ -213,9 +194,9 @@ For more detailed usage instructions, please refer to our [documentation](${data
 
 ## 🏗️ Built With
 
-${topLanguages.map(([lang, bytes]) => 
-  `- **${lang}** - ${((bytes / Object.values(langs).reduce((a, b) => a + b, 0)) * 100).toFixed(1)}%`
-).join('\n')}
+${topLanguages.map(([lang, bytes]) =>
+        `- **${lang}** - ${((bytes / Object.values(langs).reduce((a, b) => a + b, 0)) * 100).toFixed(1)}%`
+    ).join('\n')}
 
 ## 🤝 Contributing
 
@@ -344,115 +325,114 @@ cd ${repoData?.name}
 \`\`\``;
   }
 
-async function handleGenerate() {
-  setError("");
-  setRepoData(null);
-  setLanguages({});
-  const parsed = parseGithubUrl(repoUrl);
-  if (!parsed) {
-    setError("Please enter a valid GitHub repository URL.");
-    return;
-  }
+  async function handleGenerate() {
+    setError("");
+    setRepoData(null);
+    const parsed = parseGithubUrl(repoUrl);
+    if (!parsed) {
+      setError("Please enter a valid GitHub repository URL.");
+      return;
+    }
 
-  setLoading(true);
-  try {
-    const [repoRes, langsRes, readmeRes, commitsRes] = await Promise.all([
-      fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}`),
-      fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}/languages`),
-      fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}/readme`, {
-        headers: { Accept: "application/vnd.github.v3.raw" },
-      }),
-      fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}/commits?per_page=1`),
-    ]);
+    setLoading(true);
+    try {
+      const [repoRes, langsRes, readmeRes, commitsRes] = await Promise.all([
+        fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}`),
+        fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}/languages`),
+        fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}/readme`, {
+          headers: { Accept: "application/vnd.github.v3.raw" },
+        }),
+        fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}/commits?per_page=1`),
+      ]);
 
-    if (!repoRes.ok) {
-      if (repoRes.status === 404) {
-        throw new Error("Repository not found. Please check the URL and try again.");
+      if (!repoRes.ok) {
+        if (repoRes.status === 404) {
+          throw new Error("Repository not found. Please check the URL and try again.");
+        }
+        throw new Error("Failed to fetch repository data.");
       }
-      throw new Error("Failed to fetch repository data.");
+
+      const repoJson = await repoRes.json();
+      const langsJson = langsRes.ok ? await langsRes.json() : {};
+
+      const readmeContent = readmeRes.ok ? await readmeRes.text() : "";
+      const commitsJson = commitsRes.ok ? await commitsRes.json() : [];
+
+      const repoObj = {
+        name: repoJson.name,
+        description: repoJson.description,
+        licenseName: repoJson.license?.spdx_id || repoJson.license?.name || "MIT",
+        readmeContent,
+        topics: repoJson.topics || [],
+        stars: repoJson.stargazers_count,
+        forks: repoJson.forks_count,
+        lastCommitDate: commitsJson[0]?.commit?.author?.date || "",
+        htmlUrl: repoJson.html_url,
+        homepage: repoJson.homepage,
+        ownerLogin: repoJson.owner.login,
+        ownerUrl: repoJson.owner.html_url,
+        language: repoJson.language,
+        size: repoJson.size,
+        openIssues: repoJson.open_issues_count,
+        watchers: repoJson.watchers_count,
+        createdAt: repoJson.created_at,
+        updatedAt: repoJson.updated_at,
+      };
+
+      setRepoData(repoObj);
+      setMarkdownText(generateReadme(repoObj, langsJson));
+
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred. Please try again.";
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
     }
-
-    const repoJson = await repoRes.json();
-    const langsJson = langsRes.ok ? await langsRes.json() : {};
-    setLanguages(langsJson);
-
-    const readmeContent = readmeRes.ok ? await readmeRes.text() : "";
-    const commitsJson = commitsRes.ok ? await commitsRes.json() : [];
-
-    const repoObj = {
-      name: repoJson.name,
-      description: repoJson.description,
-      licenseName: repoJson.license?.spdx_id || repoJson.license?.name || "MIT",
-      readmeContent,
-      topics: repoJson.topics || [],
-      stars: repoJson.stargazers_count,
-      forks: repoJson.forks_count,
-      lastCommitDate: commitsJson[0]?.commit?.author?.date || "",
-      htmlUrl: repoJson.html_url,
-      homepage: repoJson.homepage,
-      ownerLogin: repoJson.owner.login,
-      ownerUrl: repoJson.owner.html_url,
-      language: repoJson.language,
-      size: repoJson.size,
-      openIssues: repoJson.open_issues_count,
-      watchers: repoJson.watchers_count,
-      createdAt: repoJson.created_at,
-      updatedAt: repoJson.updated_at,
-    };
-
-    setRepoData(repoObj);
-    setMarkdownText(generateReadme(repoObj, langsJson));
-
-  } catch (e: any) {
-    setError(e.message || "An unexpected error occurred. Please try again.");
-  } finally {
-    setLoading(false);
   }
-}
 
 
-const copyCodeToClipboard = async (code: string) => {
-  try {
-    if (navigator.clipboard) {
-      await navigator.clipboard.writeText(code);
-      setCopiedCode(code);
-      setTimeout(() => setCopiedCode(null), 2000);
-    } else {
-      // Fallback for browsers without Clipboard API
-      const textArea = document.createElement('textarea');
-      textArea.value = code;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textArea);
-      setCopiedCode(code);
-      setTimeout(() => setCopiedCode(null), 2000);
+  const copyCodeToClipboard = async (code: string) => {
+    try {
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(code);
+        setCopiedCode(code);
+        setTimeout(() => setCopiedCode(null), 2000);
+      } else {
+        // Fallback for browsers without Clipboard API
+        const textArea = document.createElement('textarea');
+        textArea.value = code;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        setCopiedCode(code);
+        setTimeout(() => setCopiedCode(null), 2000);
+      }
+    } catch (err) {
+      console.error('Failed to copy code: ', err);
+      alert('Failed to copy code. Please copy manually.');
     }
-  } catch (err) {
-    console.error('Failed to copy code: ', err);
-    alert('Failed to copy code. Please copy manually.');
-  }
-};
+  };
 
-const copyToClipboard = async () => {
-  if (!markdownText) return;
-  await navigator.clipboard.writeText(markdownText);
-  setCopied(true);
-  setTimeout(() => setCopied(false), 2000);
-};
+  const copyToClipboard = async () => {
+    if (!markdownText) return;
+    await navigator.clipboard.writeText(markdownText);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
-const downloadReadme = () => {
-  if (!markdownText) return;               // ← use markdownText
-  const blob = new Blob([markdownText], { type: 'text/markdown' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'README.md';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-};
+  const downloadReadme = () => {
+    if (!markdownText) return;               // ← use markdownText
+    const blob = new Blob([markdownText], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'README.md';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
 
   const backgroundPattern = {
@@ -460,298 +440,302 @@ const downloadReadme = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-      {/* Animated background */}
-      <div className="absolute inset-0 opacity-50" style={backgroundPattern}></div>
-      
-      <div className="relative z-10">
-        {/* Header */}
-        <header className="container mx-auto px-4 py-8">
-          <div className="text-center">
-            <div className="flex justify-center items-center gap-3 mb-4">
-              <div className="p-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl">
-                <FileText className="w-8 h-8 text-white" />
-              </div>
-              <h1 className="text-5xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-purple-600 bg-clip-text text-transparent">
-                ReadmeAI
-              </h1>
-            </div>
-            <p className="text-xl text-gray-300 mb-2">
-              Professional README Generator for GitHub Repositories
-            </p>
-            <p className="text-gray-400 max-w-2xl mx-auto">
-              Transform your GitHub repositories with beautiful, comprehensive README files. 
-              Just paste your repo URL and get a professional README in seconds.
-            </p>
-          </div>
-        </header>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+        {/* Animated background */}
+        <div className="absolute inset-0 opacity-50" style={backgroundPattern}></div>
 
-        {/* Main Content */}
-        <main className="container mx-auto px-4 pb-8">
-          {/* Input Section */}
-          <div className="max-w-4xl mx-auto mb-8">
-            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 border border-white/20">
-              <div className="flex flex-col gap-4">
-                <div className="flex gap-3">
-                  <div className="relative flex-1">
-                    <Github className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                    <input
-                      type="url"
-                      placeholder="https://github.com/username/repository"
-                      value={repoUrl}
-                      onChange={(e) => setRepoUrl(e.target.value)}
-                      className="w-full pl-12 pr-4 py-4 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
-                      onKeyPress={(e) => e.key === 'Enter' && handleGenerate()}
-                    />
-                  </div>
-                  <button
-                    onClick={handleGenerate}
-                    disabled={loading || !repoUrl.trim()}
-                    className="px-8 py-4 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-105 flex items-center gap-2"
-                  >
-                    {loading ? (
-                      <>
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <Zap className="w-5 h-5" />
-                        Generate
-                      </>
-                    )}
-                  </button>
+        <div className="relative z-10">
+          {/* Header */}
+          <header className="container mx-auto px-4 py-8">
+            <div className="text-center">
+              <div className="flex justify-center items-center gap-3 mb-4">
+                <div className="p-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl">
+                  <FileText className="w-8 h-8 text-white" />
                 </div>
-                
-                {error && (
-                  <div className="bg-red-500/20 border border-red-500/50 rounded-xl p-4">
-                    <p className="text-red-300 text-center font-medium">{error}</p>
-                  </div>
-                )}
+                <h1 className="text-5xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-purple-600 bg-clip-text text-transparent">
+                  ReadmeAI
+                </h1>
               </div>
+              <p className="text-xl text-gray-300 mb-2">
+                Professional README Generator for GitHub Repositories
+              </p>
+              <p className="text-gray-400 max-w-2xl mx-auto">
+                Transform your GitHub repositories with beautiful, comprehensive README files.
+                Just paste your repo URL and get a professional README in seconds.
+              </p>
             </div>
-          </div>
+          </header>
 
-          {/* Repository Stats */}
-          {repoData && (
-            <div className="max-w-6xl mx-auto mb-8">
-              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20">
-                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6">
-                  <div className="text-center">
-                    <div className="flex justify-center mb-2">
-                      <Star className="w-6 h-6 text-yellow-400" />
+          {/* Main Content */}
+          <main className="container mx-auto px-4 pb-8">
+            {/* Input Section */}
+            <div className="max-w-4xl mx-auto mb-8">
+              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 border border-white/20">
+                <div className="flex flex-col gap-4">
+                  <div className="flex gap-3">
+                    <div className="relative flex-1">
+                      <Github className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                      <input
+                          type="url"
+                          placeholder="https://github.com/username/repository"
+                          value={repoUrl}
+                          onChange={(e) => setRepoUrl(e.target.value)}
+                          className="w-full pl-12 pr-4 py-4 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                          onKeyPress={(e) => e.key === 'Enter' && handleGenerate()}
+                      />
                     </div>
-                    <div className="text-2xl font-bold text-white">{animatedStats.stars.toLocaleString()}</div>
-                    <div className="text-gray-400 text-sm">Stars</div>
+                    <button
+                        onClick={handleGenerate}
+                        disabled={loading || !repoUrl.trim()}
+                        className="px-8 py-4 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-105 flex items-center gap-2"
+                    >
+                      {loading ? (
+                          <>
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                            Generating...
+                          </>
+                      ) : (
+                          <>
+                            <Zap className="w-5 h-5" />
+                            Generate
+                          </>
+                      )}
+                    </button>
                   </div>
-                  <div className="text-center">
-                    <div className="flex justify-center mb-2">
-                      <GitFork className="w-6 h-6 text-blue-400" />
-                    </div>
-                    <div className="text-2xl font-bold text-white">{animatedStats.forks.toLocaleString()}</div>
-                    <div className="text-gray-400 text-sm">Forks</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="flex justify-center mb-2">
-                      <Eye className="w-6 h-6 text-green-400" />
-                    </div>
-                    <div className="text-2xl font-bold text-white">{animatedStats.watchers.toLocaleString()}</div>
-                    <div className="text-gray-400 text-sm">Watchers</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="flex justify-center mb-2">
-                      <Code className="w-6 h-6 text-purple-400" />
-                    </div>
-                    <div className="text-2xl font-bold text-white">{repoData.language || 'Mixed'}</div>
-                    <div className="text-gray-400 text-sm">Language</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="flex justify-center mb-2">
-                      <Users className="w-6 h-6 text-pink-400" />
-                    </div>
-                    <div className="text-2xl font-bold text-white">{repoData.openIssues || 0}</div>
-                    <div className="text-gray-400 text-sm">Issues</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="flex justify-center mb-2">
-                      <Clock className="w-6 h-6 text-orange-400" />
-                    </div>
-                    <div className="text-2xl font-bold text-white">{formatFileSize((repoData.size || 0) * 1024)}</div>
-                    <div className="text-gray-400 text-sm">Size</div>
-                  </div>
+
+                  {error && (
+                      <div className="bg-red-500/20 border border-red-500/50 rounded-xl p-4">
+                        <p className="text-red-300 text-center font-medium">{error}</p>
+                      </div>
+                  )}
                 </div>
               </div>
             </div>
-          )}
 
-          {/* Results Section */}
-          {repoData && (
-            <div className="max-w-6xl mx-auto">
-              <div className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 overflow-hidden">
-                {/* Toolbar */}
-                <div className="border-b border-white/20 p-4">
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div className="flex bg-white/10 rounded-lg p-1">
-                      <button
-                        onClick={() => setActiveTab('preview')}
-                        className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
-                          activeTab === 'preview'
-                            ? 'bg-purple-500 text-white shadow-lg'
-                            : 'text-gray-300 hover:text-white'
-                        }`}
-                      >
-                        <Eye className="w-4 h-4 inline mr-2" />
-                        Preview
-                      </button>
-                      <button
-                        onClick={() => setActiveTab('markdown')}
-                        className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
-                          activeTab === 'markdown'
-                            ? 'bg-purple-500 text-white shadow-lg'
-                            : 'text-gray-300 hover:text-white'
-                        }`}
-                      >
-                        <Code className="w-4 h-4 inline mr-2" />
-                        Markdown
-                      </button>
-                    </div>
-                    
-                    <div className="flex gap-2">
-                      <button
-                        onClick={copyToClipboard}
-                        className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all duration-200 flex items-center gap-2"
-                      >
-                        <Copy className="w-4 h-4" />
-                        {copied ? 'Copied!' : 'Copy'}
-                      </button>
-                      <button
-                        onClick={downloadReadme}
-                        className="px-4 py-2 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white rounded-lg transition-all duration-200 flex items-center gap-2"
-                      >
-                        <Download className="w-4 h-4" />
-                        Download
-                      </button>
+            {/* Repository Stats */}
+            {repoData && (
+                <div className="max-w-6xl mx-auto mb-8">
+                  <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20">
+                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6">
+                      <div className="text-center">
+                        <div className="flex justify-center mb-2">
+                          <Star className="w-6 h-6 text-yellow-400" />
+                        </div>
+                        <div className="text-2xl font-bold text-white">{animatedStats.stars.toLocaleString()}</div>
+                        <div className="text-gray-400 text-sm">Stars</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="flex justify-center mb-2">
+                          <GitFork className="w-6 h-6 text-blue-400" />
+                        </div>
+                        <div className="text-2xl font-bold text-white">{animatedStats.forks.toLocaleString()}</div>
+                        <div className="text-gray-400 text-sm">Forks</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="flex justify-center mb-2">
+                          <Eye className="w-6 h-6 text-green-400" />
+                        </div>
+                        <div className="text-2xl font-bold text-white">{animatedStats.watchers.toLocaleString()}</div>
+                        <div className="text-gray-400 text-sm">Watchers</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="flex justify-center mb-2">
+                          <Code className="w-6 h-6 text-purple-400" />
+                        </div>
+                        <div className="text-2xl font-bold text-white">{repoData.language || 'Mixed'}</div>
+                        <div className="text-gray-400 text-sm">Language</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="flex justify-center mb-2">
+                          <Users className="w-6 h-6 text-pink-400" />
+                        </div>
+                        <div className="text-2xl font-bold text-white">{repoData.openIssues || 0}</div>
+                        <div className="text-gray-400 text-sm">Issues</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="flex justify-center mb-2">
+                          <Clock className="w-6 h-6 text-orange-400" />
+                        </div>
+                        <div className="text-2xl font-bold text-white">{formatFileSize((repoData.size || 0) * 1024)}</div>
+                        <div className="text-gray-400 text-sm">Size</div>
+                      </div>
                     </div>
                   </div>
                 </div>
+            )}
 
-                {/* Content */}
-<div className="p-6">
-  {activeTab === 'markdown' ? (
-    <textarea
-      value={markdownText}                           // ← use markdownText
-      onChange={e => setMarkdownText(e.target.value)}// ← make it editable
-      className="w-full h-96 p-4 bg-gray-900 text-gray-100 font-mono text-sm rounded-xl border border-gray-600 resize-none focus:outline-none"
-    />
-  ) : (
-    <div className="bg-gray-900 rounded-lg p-6 border border-gray-700">
-      <div className="prose prose-invert max-w-none prose-headings:text-white prose-p:text-gray-300 prose-strong:text-white prose-a:text-blue-400 prose-a:no-underline hover:prose-a:underline prose-code:text-purple-300 prose-code:bg-gray-800 prose-pre:bg-gray-800 prose-pre:border prose-pre:border-gray-700">
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          rehypePlugins={[rehypeRaw]}
-          components={{
-            img: ({ node, ...props }) => (
-              <img
-                {...props}
-                className="inline-block max-w-full h-auto rounded border border-gray-700"
-                style={{ filter: "brightness(1.1)" }}
-              />
-            ),
-            code: ({ inline, className, children, ...props }) => {
-              if (inline) {
-                return (
-                  <code
-                    className="bg-gray-800 text-purple-300 px-2 py-1 rounded text-sm border border-gray-700"
-                    {...props}
-                  >
-                    {children}
-                  </code>
-                );
-              }
-              const codeContent = String(children).replace(/\n$/, '');
-              return (
-                <div className="relative group">
-                  <button
-                    onClick={() => copyCodeToClipboard(codeContent)}
-                    className="absolute top-2 right-2 p-2 bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white rounded transition-all duration-200 opacity-0 group-hover:opacity-100 z-10"
-                    title="Copy code"
-                  >
-                    {copiedCode === codeContent ? (
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    ) : (
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
-                        <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
-                      </svg>
-                    )}
-                  </button>
-                  <code
-                    className={`${className} block bg-gray-800 text-gray-300 p-4 rounded-lg border border-gray-700 overflow-x-auto pr-12`}
-                    {...props}
-                  >
-                    {children}
-                  </code>
-                </div>
-              );
-            },
-            pre: ({ children, ...props }) => (
-              <div className="relative group">
+            {/* Results Section */}
+            {repoData && (
+                <div className="max-w-6xl mx-auto">
+                  <div className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 overflow-hidden">
+                    {/* Toolbar */}
+                    <div className="border-b border-white/20 p-4">
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div className="flex bg-white/10 rounded-lg p-1">
+                          <button
+                              onClick={() => setActiveTab('preview')}
+                              className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                                  activeTab === 'preview'
+                                      ? 'bg-purple-500 text-white shadow-lg'
+                                      : 'text-gray-300 hover:text-white'
+                              }`}
+                          >
+                            <Eye className="w-4 h-4 inline mr-2" />
+                            Preview
+                          </button>
+                          <button
+                              onClick={() => setActiveTab('markdown')}
+                              className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                                  activeTab === 'markdown'
+                                      ? 'bg-purple-500 text-white shadow-lg'
+                                      : 'text-gray-300 hover:text-white'
+                              }`}
+                          >
+                            <Code className="w-4 h-4 inline mr-2" />
+                            Markdown
+                          </button>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <button
+                              onClick={copyToClipboard}
+                              className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all duration-200 flex items-center gap-2"
+                          >
+                            <Copy className="w-4 h-4" />
+                            {copied ? 'Copied!' : 'Copy'}
+                          </button>
+                          <button
+                              onClick={downloadReadme}
+                              className="px-4 py-2 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white rounded-lg transition-all duration-200 flex items-center gap-2"
+                          >
+                            <Download className="w-4 h-4" />
+                            Download
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Content */}
+                    <div className="p-6">
+                      {activeTab === 'markdown' ? (
+                          <textarea
+                              value={markdownText}                           // ← use markdownText
+                              onChange={e => setMarkdownText(e.target.value)}// ← make it editable
+                              className="w-full h-96 p-4 bg-gray-900 text-gray-100 font-mono text-sm rounded-xl border border-gray-600 resize-none focus:outline-none"
+                          />
+                      ) : (
+                          <div className="bg-gray-900 rounded-lg p-6 border border-gray-700">
+                            <div className="prose prose-invert max-w-none prose-headings:text-white prose-p:text-gray-300 prose-strong:text-white prose-a:text-blue-400 prose-a:no-underline hover:prose-a:underline prose-code:text-purple-300 prose-code:bg-gray-800 prose-pre:bg-gray-800 prose-pre:border prose-pre:border-gray-700">
+                              <ReactMarkdown
+                                  remarkPlugins={[remarkGfm]}
+                                  rehypePlugins={[rehypeRaw]}
+                                  components={{
+                                    img: (props) => (
+                                        <img
+                                            {...props}
+                                            className="inline-block max-w-full h-auto rounded border border-gray-700"
+                                            style={{ filter: "brightness(1.1)" }}
+                                        />
+                                    ),
+                                    code: ({ className, children, ...props }) => {
+                                      const match = /language-(\w+)/.exec(className || '');
+                                      const isInline = !match;
+
+                                      if (isInline) {
+                                        return (
+                                            <code
+                                                className="bg-gray-800 text-purple-300 px-2 py-1 rounded text-sm border border-gray-700"
+                                                {...props}
+                                            >
+                                              {children}
+                                            </code>
+                                        );
+                                      }
+
+                                      const codeContent = String(children).replace(/\n$/, '');
+                                      return (
+                                          <div className="relative group">
+                                            <button
+                                                onClick={() => copyCodeToClipboard(codeContent)}
+                                                className="absolute top-2 right-2 p-2 bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white rounded transition-all duration-200 opacity-0 group-hover:opacity-100 z-10"
+                                                title="Copy code"
+                                            >
+                                              {copiedCode === codeContent ? (
+                                                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                                  </svg>
+                                              ) : (
+                                                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+                                                    <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
+                                                  </svg>
+                                              )}
+                                            </button>
+                                            <code
+                                                className={`${className} block bg-gray-800 text-gray-300 p-4 rounded-lg border border-gray-700 overflow-x-auto pr-12`}
+                                                {...props}
+                                            >
+                                              {children}
+                                            </code>
+                                          </div>
+                                      );
+                                    },
+                                    pre: ({ children, ...props }) => (
+                                        <div className="relative group">
                 <pre className="bg-gray-800 text-gray-300 p-4 rounded-lg border border-gray-700 overflow-x-auto" {...props}>
                   {children}
                 </pre>
-              </div>
-            ),
-            h1: ({ ...props }) => <h1 className="text-3xl font-bold text-white mb-4 pb-2 border-b border-gray-700" {...props} />,
-            h2: ({ ...props }) => <h2 className="text-2xl font-bold text-white mb-3 mt-8 pb-2 border-b border-gray-700" {...props} />,
-            h3: ({ ...props }) => <h3 className="text-xl font-bold text-white mb-2 mt-6" {...props} />,
-            h4: ({ ...props }) => <h4 className="text-lg font-bold text-white mb-2 mt-4" {...props} />,
-            h5: ({ ...props }) => <h5 className="text-base font-bold text-white mb-2 mt-4" {...props} />,
-            h6: ({ ...props }) => <h6 className="text-sm font-bold text-white mb-2 mt-4" {...props} />,
-            p: ({ ...props }) => <p className="text-gray-300 mb-4 leading-relaxed" {...props} />,
-            a: ({ ...props }) => <a className="text-blue-400 hover:text-blue-300 hover:underline transition-colors" {...props} />,
-            ul: ({ ...props }) => <ul className="text-gray-300 mb-4 pl-6 space-y-2" {...props} />,
-            ol: ({ ...props }) => <ol className="text-gray-300 mb-4 pl-6 space-y-2" {...props} />,
-            li: ({ ...props }) => <li className="text-gray-300" {...props} />,
-            blockquote: ({ ...props }) => <blockquote className="border-l-4 border-blue-500 pl-4 italic text-gray-400 bg-gray-800 p-4 rounded-r-lg" {...props} />,
-            table: ({ ...props }) => (
-              <div className="overflow-x-auto mb-4">
-                <table className="min-w-full border border-gray-700 rounded-lg" {...props} />
-              </div>
-            ),
-            thead: ({ ...props }) => <thead className="bg-gray-800" {...props} />,
-            tbody: ({ ...props }) => <tbody className="bg-gray-850" {...props} />,
-            tr: ({ ...props }) => <tr className="border-b border-gray-700" {...props} />,
-            th: ({ ...props }) => <th className="px-4 py-2 text-left text-white font-semibold border-r border-gray-700" {...props} />,
-            td: ({ ...props }) => <td className="px-4 py-2 text-gray-300 border-r border-gray-700" {...props} />,
-            hr: ({ ...props }) => <hr className="border-gray-700 my-8" {...props} />
-          }}
-        >
-          {markdownText}
-        </ReactMarkdown>
-      </div>
-    </div>
-  )}
-</div>
+                                        </div>
+                                    ),
+                                    h1: ({ ...props }) => <h1 className="text-3xl font-bold text-white mb-4 pb-2 border-b border-gray-700" {...props} />,
+                                    h2: ({ ...props }) => <h2 className="text-2xl font-bold text-white mb-3 mt-8 pb-2 border-b border-gray-700" {...props} />,
+                                    h3: ({ ...props }) => <h3 className="text-xl font-bold text-white mb-2 mt-6" {...props} />,
+                                    h4: ({ ...props }) => <h4 className="text-lg font-bold text-white mb-2 mt-4" {...props} />,
+                                    h5: ({ ...props }) => <h5 className="text-base font-bold text-white mb-2 mt-4" {...props} />,
+                                    h6: ({ ...props }) => <h6 className="text-sm font-bold text-white mb-2 mt-4" {...props} />,
+                                    p: ({ ...props }) => <p className="text-gray-300 mb-4 leading-relaxed" {...props} />,
+                                    a: ({ ...props }) => <a className="text-blue-400 hover:text-blue-300 hover:underline transition-colors" {...props} />,
+                                    ul: ({ ...props }) => <ul className="text-gray-300 mb-4 pl-6 space-y-2" {...props} />,
+                                    ol: ({ ...props }) => <ol className="text-gray-300 mb-4 pl-6 space-y-2" {...props} />,
+                                    li: ({ ...props }) => <li className="text-gray-300" {...props} />,
+                                    blockquote: ({ ...props }) => <blockquote className="border-l-4 border-blue-500 pl-4 italic text-gray-400 bg-gray-800 p-4 rounded-r-lg" {...props} />,
+                                    table: ({ ...props }) => (
+                                        <div className="overflow-x-auto mb-4">
+                                          <table className="min-w-full border border-gray-700 rounded-lg" {...props} />
+                                        </div>
+                                    ),
+                                    thead: ({ ...props }) => <thead className="bg-gray-800" {...props} />,
+                                    tbody: ({ ...props }) => <tbody className="bg-gray-850" {...props} />,
+                                    tr: ({ ...props }) => <tr className="border-b border-gray-700" {...props} />,
+                                    th: ({ ...props }) => <th className="px-4 py-2 text-left text-white font-semibold border-r border-gray-700" {...props} />,
+                                    td: ({ ...props }) => <td className="px-4 py-2 text-gray-300 border-r border-gray-700" {...props} />,
+                                    hr: ({ ...props }) => <hr className="border-gray-700 my-8" {...props} />
+                                  }}
+                              >
+                                {markdownText}
+                              </ReactMarkdown>
+                            </div>
+                          </div>
+                      )}
+                    </div>
 
-              </div>
+                  </div>
+                </div>
+            )}
+          </main>
+
+          {/* Footer */}
+          <footer className="container mx-auto px-4 py-8 text-center">
+            <div className="bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/10">
+              <p className="text-gray-400 mb-2">
+                Made with ❤️ for the open source community
+              </p>
+              <p className="text-sm text-gray-500">
+                Generate professional README files in seconds • Free forever
+              </p>
             </div>
-          )}
-        </main>
-
-        {/* Footer */}
-        <footer className="container mx-auto px-4 py-8 text-center">
-          <div className="bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/10">
-            <p className="text-gray-400 mb-2">
-              Made with ❤️ for the open source community
-            </p>
-            <p className="text-sm text-gray-500">
-              Generate professional README files in seconds • Free forever
-            </p>
-          </div>
-        </footer>
+          </footer>
+        </div>
       </div>
-    </div>
   );
 }
