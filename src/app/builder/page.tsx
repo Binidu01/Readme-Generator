@@ -422,7 +422,7 @@ cd ${repoData?.name}
   };
 
   const downloadReadme = () => {
-    if (!markdownText) return;               // ← use markdownText
+    if (!markdownText) return;
     const blob = new Blob([markdownText], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -619,8 +619,8 @@ cd ${repoData?.name}
                     <div className="p-6">
                       {activeTab === 'markdown' ? (
                           <textarea
-                              value={markdownText}                           // ← use markdownText
-                              onChange={e => setMarkdownText(e.target.value)}// ← make it editable
+                              value={markdownText}
+                              onChange={e => setMarkdownText(e.target.value)}
                               className="w-full h-96 p-4 bg-gray-900 text-gray-100 font-mono text-sm rounded-xl border border-gray-600 resize-none focus:outline-none"
                           />
                       ) : (
@@ -630,13 +630,19 @@ cd ${repoData?.name}
                                   remarkPlugins={[remarkGfm]}
                                   rehypePlugins={[rehypeRaw]}
                                   components={{
-                                    img: (props) => (
-                                        <img
-                                            {...props}
-                                            className="inline-block max-w-full h-auto rounded border border-gray-700"
-                                            style={{ filter: "brightness(1.1)" }}
-                                        />
-                                    ),
+                                    img: ({ src, alt, ...props }) => {
+                                      if (!src) return null;
+                                      return (
+                                          // eslint-disable-next-line @next/next/no-img-element
+                                          <img
+                                              src={typeof src === 'string' ? src : ''}
+                                              alt={alt || 'README image'}
+                                              className="inline-block max-w-full h-auto rounded border border-gray-700"
+                                              style={{ filter: "brightness(1.1)" }}
+                                              {...props}
+                                          />
+                                      );
+                                    },
                                     code: ({ className, children, ...props }) => {
                                       const match = /language-(\w+)/.exec(className || '');
                                       const isInline = !match;
